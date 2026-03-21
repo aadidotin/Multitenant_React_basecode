@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Mail, Loader2, ArrowLeft } from 'lucide-react';
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,18 @@ export default function ForgotPassword() {
         e.preventDefault();
         post(sendRoute);
     };
+
+    useEffect(() => {
+        const root = window.document.documentElement;
+
+        const timer = setTimeout(() => {
+            root.classList.remove('light', 'dark');
+
+            root.classList.add('light');
+        }, 100);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     return (
         <>

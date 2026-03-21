@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Loader2, ArrowLeft, KeyRound } from 'lucide-react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     verifyOtp as centralPasswordVerifyOtp,
@@ -72,6 +72,18 @@ export default function VerifyOtp({ email }: Props) {
         setData('otp', data.otp.join(''));
         post(verifyRoute);
     };
+
+    useEffect(() => {
+        const root = window.document.documentElement;
+
+        const timer = setTimeout(() => {
+            root.classList.remove('light', 'dark');
+
+            root.classList.add('light');
+        }, 100);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     return (
         <>

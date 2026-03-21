@@ -34,7 +34,12 @@ class TenantLoginController extends Controller
 
     public function store(LoginRequest $request): RedirectResponse
     {
-        $user = $this->authService->attempt($request);
+        $user = $this->authService->attempt(
+            request: $request,
+            conditions: [
+                ['status', 'approved'], // Only allow approved users to log in
+            ]
+        );
 
         Auth::login($user, $request->boolean('remember'));
 

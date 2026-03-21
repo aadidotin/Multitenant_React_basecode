@@ -21,11 +21,17 @@ class AuthenticationService
      *
      * @throws ValidationException
      */
-    public function attempt(Request $request, string $guard = 'web'): User
+    public function attempt(Request $request, string $guard = 'web', array $conditions = []): User
     {
         $this->checkRateLimit($request);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)
+            ->when(filled($conditions), function ($query) use ($conditions) {
+                foreach ($conditions as $value) {
+                    $query->where(...$value);
+                }
+            })
+            ->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             RateLimiter::hit($this->rateLimitKey($request));

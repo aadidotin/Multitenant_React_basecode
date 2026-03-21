@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { useEffect } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,18 @@ export default function TenantLogin({ tenantName }: Props) {
         // post(route('tenant.login.store'));
         post(tenantLoginStore.url());
     };
+
+    useEffect(() => {
+        const root = window.document.documentElement;
+
+        const timer = setTimeout(() => {
+            root.classList.remove('light', 'dark');
+
+            root.classList.add('light');
+        }, 100);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     return (
         <>

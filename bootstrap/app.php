@@ -41,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'central-only' => \App\Http\Middleware\PreventAccessFromTenantDomains::class,
             'tenant-active' => \App\Http\Middleware\EnsureTenantIsActive::class,
             'trial-status' => \App\Http\Middleware\ShareTrialStatus::class,
+            'user-approved' => \App\Http\Middleware\EnsureUserIsApproved::class,
         ]);
 
         $middleware->web(append: [

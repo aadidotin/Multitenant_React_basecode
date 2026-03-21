@@ -4,21 +4,18 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\TenantLoginController;
+use App\Http\Controllers\User\PublicUserRegistrationController;
+use App\Http\Controllers\User\UserController;
+use App\Http\Controllers\User\UserRegistrationSettingsController;
 use Illuminate\Support\Facades\Route;
-use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
-use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 
-/*
-|--------------------------------------------------------------------------
-| Tenant Routes
-|--------------------------------------------------------------------------
-|
-| Here you can register the tenant routes for your application.
-| These routes are loaded by the TenantRouteServiceProvider.
-|
-| Feel free to customize them however you want. Good luck!
-|
-*/
+// ── Public: Unauthenticated user self-registration ────────────────────────────
+// Token in the URL acts as the gate — 404 if disabled or token mismatch
+Route::prefix('register/users')->name('tenant.users.public-register.')->group(function () {
+    Route::get('/success/{token}', [PublicUserRegistrationController::class, 'success'])->name('success');
+    Route::get('/{token}',         [PublicUserRegistrationController::class, 'show'])->name('show');
+    Route::post('/{token}',        [PublicUserRegistrationController::class, 'store'])->name('store');
+});
 
 Route::middleware('guest')->group(function () {
 
@@ -57,18 +54,29 @@ Route::middleware(['tenant-active', 'trial-status'])->group(function () {
         'destroy' => 'tenant.roles.destroy',
     ]);
 
+    // ── Users ─────────────────────────────────────────────────────────────────
+    // Settings routes MUST be defined before resource() to avoid {user} swallowing "settings"
+    Route::prefix('users')->name('tenant.users.')->group(function () {
+        Route::get('/settings',              [UserRegistrationSettingsController::class, 'show'])->name('settings');
+        Route::put('/settings',              [UserRegistrationSettingsController::class, 'update'])->name('settings.update');
+        Route::post('/settings/rotate-token', [UserRegistrationSettingsController::class, 'rotateToken'])->name('settings.rotate-token');
+
+        // Review (approve / reject / block) — PATCH to single endpoint
+        Route::patch('/{user}/review', [UserController::class, 'review'])->name('review');
+
+        // Role sync
+        Route::put('/{user}/roles', [UserController::class, 'syncRoles'])->name('roles.sync');
+    });
+
     // // ── Users ─────────────────────────────────────────────────────────────
     // // Included here because user→role assignment lives alongside role management
-    // Route::resource('users', UserController::class)->names([
-    //     'index'   => 'tenant.users.index',
-    //     'create'  => 'tenant.users.create',
-    //     'store'   => 'tenant.users.store',
-    //     'show'    => 'tenant.users.show',
-    //     'edit'    => 'tenant.users.edit',
-    //     'update'  => 'tenant.users.update',
-    //     'destroy' => 'tenant.users.destroy',
-    // ]);
-
-    // // Dedicated endpoint for assigning/syncing roles to a user
-    // Route::put('users/{user}/roles', [UserController::class, 'syncRoles'])->name('tenant.users.roles.sync');
+    Route::resource('users', UserController::class)->names([
+        'index'   => 'tenant.users.index',
+        'create'  => 'tenant.users.create',
+        'store'   => 'tenant.users.store',
+        'show'    => 'tenant.users.show',
+        'edit'    => 'tenant.users.edit',
+        'update'  => 'tenant.users.update',
+        'destroy' => 'tenant.users.destroy',
+    ]);
 });

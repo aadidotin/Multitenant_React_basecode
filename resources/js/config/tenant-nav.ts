@@ -1,22 +1,13 @@
 // resources/js/config/tenant-nav.ts
-import {
-    LayoutDashboard,
-    UserRoundKey,
-    // FileText,
-    // BarChart2,
-    // TrendingUp,
-    // Users,
-    // Shield,
-    // Settings,
-} from 'lucide-react';
+import { LayoutDashboard, UserRoundKey, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { dashboard as dashboardIndex } from '@/routes/tenant';
 import { index as rolesIndex } from '@/routes/tenant/roles';
+import { index as usersIndex } from '@/routes/tenant/users';
 // import { index as invoicesIndex  } from '@/routes/tenant/invoices';
 // import { index as reportsIndex   } from '@/routes/tenant/reports';
 // import { index as analyticsIndex } from '@/routes/tenant/analytics';
-// import { index as usersIndex     } from '@/routes/tenant/users';
 // import { index as rolesIndex     } from '@/routes/tenant/roles';
 // import { index as settingsIndex  } from '@/routes/tenant/settings';
 
@@ -48,6 +39,12 @@ export const TENANT_NAV: TenantNavItem[] = [
         title: 'Dashboard',
         url: dashboardIndex.url(),
         icon: LayoutDashboard,
+    },
+    {
+        title: 'Users',
+        url: usersIndex.url(),
+        icon: Users,
+        module: 'users',
     },
     {
         title: 'Roles & Permissions',

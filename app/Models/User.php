@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,17 +13,38 @@ class User extends Authenticatable
 {
     use Notifiable;
 
+    // ── Status constants ──────────────────────────────────────────────────────
+
+    const STATUS_PENDING  = 'pending';
+    const STATUS_APPROVED = 'approved';
+    const STATUS_REJECTED = 'rejected';
+    const STATUS_BLOCKED  = 'blocked';
+
+    const TYPE_AUTHENTICATED   = 'authenticated';
+    const TYPE_SELF_REGISTERED = 'self_registered';
+
+    // ── Mass assignment ───────────────────────────────────────────────────────
+
     protected $fillable = [
         'name',
         'email',
         'password',
+        'status',
+        'registration_type',
+        'reviewed_by',
+        'reviewed_at',
+        'review_notes',
+        'phone',
+        'designation',
+        'department',
     ];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
-        'email_verified_at'    => 'datetime',
-        'password'             => 'hashed',
+        'email_verified_at' => 'datetime',
+        'reviewed_at'       => 'datetime',
+        'password'          => 'hashed',
     ];
 
     // ── Relationships ─────────────────────────────────────────────────────────
@@ -29,6 +52,61 @@ class User extends Authenticatable
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'role_user')->withTimestamps();
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    // ── Scopes ────────────────────────────────────────────────────────────────
+
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_PENDING);
+    }
+
+    public function scopeApproved(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_APPROVED);
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        // Only approved users can access the application
+        return $query->where('status', self::STATUS_APPROVED);
+    }
+
+    public function scopeSelfRegistered(Builder $query): Builder
+    {
+        return $query->where('registration_type', self::TYPE_SELF_REGISTERED);
+    }
+
+    // ── Status helpers ────────────────────────────────────────────────────────
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === self::STATUS_APPROVED;
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === self::STATUS_REJECTED;
+    }
+
+    public function isBlocked(): bool
+    {
+        return $this->status === self::STATUS_BLOCKED;
+    }
+
+    public function isSelfRegistered(): bool
+    {
+        return $this->registration_type === self::TYPE_SELF_REGISTERED;
     }
 
     // ── Permission resolution ─────────────────────────────────────────────────
@@ -42,7 +120,6 @@ class User extends Authenticatable
     public function resolvedPermissions(): array
     {
         // Admin bypass — system admin gets ALL tenant module actions
-        // no need to check role_module_actions table
         if ($this->isAdmin()) {
             return TenantModule::asMap();
         }
