@@ -16,7 +16,7 @@ class ShareUserPermissions
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (tenancy()->initialized() && auth()->check()) {
+        if (tenancy()->initialized && auth()->check()) {
             $user = auth()->user();
 
             Inertia::share([

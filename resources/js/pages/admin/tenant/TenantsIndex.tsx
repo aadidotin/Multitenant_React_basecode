@@ -30,12 +30,12 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/AppLayout';
-import type { PaginatedData } from '@/types/pagination';
 import {
     index as AdminTenantIndex,
     show as AdminTenantShow,
     approve as AdminTenantApprove,
 } from '@/routes/central/tenants';
+import type { PaginatedData } from '@/types/pagination';
 
 interface Domain {
     domain: string;
@@ -161,36 +161,39 @@ export default function TenantsIndex({
             <Head title="Tenants" />
 
             <div className="space-y-6">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        Tenants
-                    </h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Manage tenant registrations, approvals, and workspace
-                        status.
-                    </p>
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            Tenants
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Manage tenant registrations, approvals, and workspace
+                            status.
+                        </p>
+                    </div>
                 </div>
 
                 {/* Status tabs */}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {statusTabs.map((tab) => (
                         <button
                             key={tab.key ?? 'all'}
                             onClick={() => applyFilter({ status: tab.key })}
-                            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
                                 filters.status === tab.key ||
                                 (!filters.status && !tab.key)
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'bg-muted text-muted-foreground hover:bg-muted/70'
                             }`}
                         >
-                            {tab.label}
+                            <span>{tab.label}</span>
                             <span
-                                className={`rounded-full px-1.5 py-0.5 text-xs ${
+                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                                     filters.status === tab.key ||
                                     (!filters.status && !tab.key)
                                         ? 'bg-primary-foreground/20 text-primary-foreground'
-                                        : 'bg-background'
+                                        : 'bg-muted-foreground/20 text-muted-foreground'
                                 }`}
                             >
                                 {tab.count}
@@ -203,7 +206,7 @@ export default function TenantsIndex({
                 <div className="relative max-w-sm">
                     <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        className="pl-9"
+                        className="pl-9 transition-colors focus:border-ring"
                         placeholder="Search by name or email…"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -214,24 +217,24 @@ export default function TenantsIndex({
                 </div>
 
                 {/* Table */}
-                <div className="rounded-md border bg-card">
+                <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
                     <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead>Tenant</TableHead>
-                                <TableHead>Workspace URL</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Trial Ends</TableHead>
-                                <TableHead>Registered</TableHead>
-                                <TableHead />
+                            <TableRow className="bg-muted/50">
+                                <TableHead className="font-semibold">Tenant</TableHead>
+                                <TableHead className="font-semibold">Workspace URL</TableHead>
+                                <TableHead className="font-semibold">Status</TableHead>
+                                <TableHead className="font-semibold">Trial Ends</TableHead>
+                                <TableHead className="font-semibold">Registered</TableHead>
+                                <TableHead className="w-[80px] text-right font-semibold">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {tenants.data.map((tenant) => (
-                                <TableRow key={tenant.id}>
+                                <TableRow key={tenant.id} className="hover:bg-muted/30">
                                     <TableCell>
-                                        <div>
-                                            <p className="font-medium">
+                                        <div className="space-y-0.5">
+                                            <p className="font-medium text-slate-900">
                                                 {tenant.name}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
@@ -240,9 +243,9 @@ export default function TenantsIndex({
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <code className="text-xs text-muted-foreground">
+                                        <span className="inline-flex rounded-md bg-slate-100 px-2 py-1 font-mono text-xs text-slate-600">
                                             {tenant.domains[0]?.domain ?? '—'}
-                                        </code>
+                                        </span>
                                     </TableCell>
                                     <TableCell>
                                         <StatusBadge status={tenant.status} />
@@ -252,7 +255,7 @@ export default function TenantsIndex({
                                             ? new Date(
                                                   tenant.trial_ends_at,
                                               ).toLocaleDateString()
-                                            : '—'}
+                                            : <span className="text-slate-300">—</span>}
                                     </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">
                                         {new Date(
@@ -260,25 +263,25 @@ export default function TenantsIndex({
                                         ).toLocaleDateString()}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex items-center justify-end gap-1">
+                                        <div className="flex items-center justify-end gap-1.5">
                                             {tenant.status ===
                                                 'pending_approval' && (
                                                 <Button
                                                     size="sm"
                                                     variant="default"
-                                                    className="h-7 text-xs"
+                                                    className="h-8 gap-1"
                                                     onClick={() =>
                                                         setApproveTarget(tenant)
                                                     }
                                                 >
-                                                    <CheckCircle className="mr-1 h-3 w-3" />{' '}
-                                                    Approve
+                                                    <CheckCircle className="h-3.5 w-3.5" />
+                                                    <span>Approve</span>
                                                 </Button>
                                             )}
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
-                                                className="h-7 w-7"
+                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
                                                 asChild
                                             >
                                                 <Link
@@ -286,7 +289,7 @@ export default function TenantsIndex({
                                                         tenant.id,
                                                     )}
                                                 >
-                                                    <Eye className="h-3.5 w-3.5" />
+                                                    <Eye className="h-4 w-4" />
                                                 </Link>
                                             </Button>
                                         </div>
@@ -297,9 +300,16 @@ export default function TenantsIndex({
                                 <TableRow>
                                     <TableCell
                                         colSpan={6}
-                                        className="h-24 text-center text-muted-foreground"
+                                        className="h-32 text-center"
                                     >
-                                        No tenants found.
+                                        <div className="flex flex-col items-center justify-center space-y-2">
+                                            <div className="rounded-full bg-muted p-3">
+                                                <Search className="h-5 w-5 text-muted-foreground" />
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                                No tenants found
+                                            </p>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )}

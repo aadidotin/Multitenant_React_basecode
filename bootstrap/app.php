@@ -20,7 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::middleware(['web'])->group(base_path('routes/web.php'));
             Route::middleware(['api'])->group(base_path('routes/api.php'));
 
-            Route::middleware(['web', 'tenant'])->group(base_path('routes/tenant.php'));
+            Route::middleware([
+                'web',
+                'tenant',
+                \App\Http\Middleware\ShareUserPermissions::class,
+            ])->group(base_path('routes/tenant.php'));
         }
     )
     ->withMiddleware(function (Middleware $middleware): void {

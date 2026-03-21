@@ -41,12 +41,18 @@ class User extends Authenticatable
      */
     public function resolvedPermissions(): array
     {
+        // Admin bypass — system admin gets ALL tenant module actions
+        // no need to check role_module_actions table
+        if ($this->isAdmin()) {
+            return TenantModule::asMap();
+        }
+
         $merged = $this->roles()
             ->with('moduleActions')
             ->get()
-            ->flatMap(fn ($role) => $role->moduleActions)
+            ->flatMap(fn($role) => $role->moduleActions)
             ->groupBy('module_slug')
-            ->map(fn ($items) => $items->pluck('action_key')->unique()->values()->toArray())
+            ->map(fn($items) => $items->pluck('action_key')->unique()->values()->toArray())
             ->toArray();
 
         $tenantModules = TenantModule::asMap();
@@ -83,15 +89,22 @@ class User extends Authenticatable
      */
     public function canDo(string $moduleSlug, string $actionKey): bool
     {
+        // Admin bypass
+        if ($this->isAdmin()) {
+            return TenantModule::canDo($moduleSlug, $actionKey);
+        }
+
         // Fast path: check tenant ceiling first (avoids role query if module not in package)
         if (! TenantModule::canDo($moduleSlug, $actionKey)) {
             return false;
         }
 
         return $this->roles()
-            ->whereHas('moduleActions', fn ($q) =>
+            ->whereHas(
+                'moduleActions',
+                fn($q) =>
                 $q->where('module_slug', $moduleSlug)
-                  ->where('action_key', $actionKey)
+                    ->where('action_key', $actionKey)
             )
             ->exists();
     }
@@ -106,7 +119,9 @@ class User extends Authenticatable
         }
 
         return $this->roles()
-            ->whereHas('moduleActions', fn ($q) =>
+            ->whereHas(
+                'moduleActions',
+                fn($q) =>
                 $q->where('module_slug', $moduleSlug)
             )
             ->exists();
@@ -123,7 +138,7 @@ class User extends Authenticatable
         return TenantModule::whereIn('module_slug', array_keys($permissions))
             ->orderBy('module_group')
             ->get()
-            ->map(fn ($module) => [
+            ->map(fn($module) => [
                 'slug'    => $module->module_slug,
                 'name'    => $module->module_name,
                 'group'   => $module->module_group,

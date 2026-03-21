@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout';
-import type { PaginatedData } from '@/types/pagination';
 import {
     index as SubscriptionPackageIndex,
     show as SubscriptionShow,
@@ -33,6 +32,7 @@ import {
     destroy as SubscriptionDestroy,
     create as SubscriptionCreate,
 } from '@/routes/central/subscription-packages';
+import type { PaginatedData } from '@/types/pagination';
 
 interface Package {
     id: number;
