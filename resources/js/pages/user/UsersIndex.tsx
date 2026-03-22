@@ -2,13 +2,16 @@ import { Head, Link, router } from '@inertiajs/react';
 import {
     UserPlus,
     Settings,
-    CheckCircle2,
+    CheckCircle,
     XCircle,
     Ban,
     MoreHorizontal,
     Pencil,
     Trash2,
-    Users,
+    Search,
+    CheckCircle2,
+    Clock,
+    AlertTriangle,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -25,7 +28,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -33,6 +35,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Table,
@@ -102,6 +105,7 @@ interface Props {
     users: Paginator<User>;
     counts: Counts;
     currentStatus: string;
+    filters?: { search?: string };
 }
 
 // ── Status badge config ───────────────────────────────────────────────────────
@@ -111,23 +115,35 @@ const STATUS_CONFIG: Record<
     {
         label: string;
         variant: 'default' | 'secondary' | 'destructive' | 'outline';
+        Icon: React.ElementType;
     }
 > = {
-    pending: { label: 'Pending', variant: 'secondary' },
-    approved: { label: 'Approved', variant: 'default' },
-    rejected: { label: 'Rejected', variant: 'outline' },
-    blocked: { label: 'Blocked', variant: 'destructive' },
+    pending: { label: 'Pending', variant: 'outline', Icon: Clock },
+    approved: { label: 'Approved', variant: 'default', Icon: CheckCircle },
+    rejected: { label: 'Rejected', variant: 'outline', Icon: XCircle },
+    blocked: { label: 'Blocked', variant: 'destructive', Icon: AlertTriangle },
 };
 
-// ── Tab config ────────────────────────────────────────────────────────────────
+const STATUS_COLORS: Record<UserStatus, string> = {
+    pending: 'text-amber-700 border-amber-300 bg-amber-50',
+    approved: 'text-emerald-700 border-emerald-300 bg-emerald-50',
+    rejected: 'text-slate-600 border-slate-300 bg-slate-50',
+    blocked: 'text-red-700 border-red-300 bg-red-50',
+};
 
-const TABS: { key: string; label: string; countKey: keyof Counts }[] = [
-    { key: 'all', label: 'All', countKey: 'all' },
-    { key: 'pending', label: 'Pending', countKey: 'pending' },
-    { key: 'approved', label: 'Approved', countKey: 'approved' },
-    { key: 'rejected', label: 'Rejected', countKey: 'rejected' },
-    { key: 'blocked', label: 'Blocked', countKey: 'blocked' },
-];
+function StatusBadge({ status }: { status: UserStatus }) {
+    const cfg = STATUS_CONFIG[status];
+    const { label, Icon } = cfg;
+
+    return (
+        <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium ${STATUS_COLORS[status]}`}
+        >
+            <Icon className="h-3 w-3" />
+            {label}
+        </span>
+    );
+}
 
 // ── Review modal ──────────────────────────────────────────────────────────────
 
@@ -179,7 +195,13 @@ const REVIEW_CONFIG: Record<
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function UsersIndex({ users, counts, currentStatus }: Props) {
+export default function UsersIndex({
+    users,
+    counts,
+    currentStatus,
+    filters,
+}: Props) {
+    const [search, setSearch] = useState(filters?.search ?? '');
     const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
     const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
     const [reviewNotes, setReviewNotes] = useState('');
@@ -187,7 +209,15 @@ export default function UsersIndex({ users, counts, currentStatus }: Props) {
     const handleTabChange = (status: string) => {
         router.get(
             index.url(),
-            { status },
+            { status, search: search || undefined },
+            { preserveState: true, replace: true },
+        );
+    };
+
+    const handleSearch = () => {
+        router.get(
+            index.url(),
+            { search, status: currentStatus || undefined },
             { preserveState: true, replace: true },
         );
     };
@@ -218,18 +248,30 @@ export default function UsersIndex({ users, counts, currentStatus }: Props) {
         );
     };
 
+    const statusTabs = [
+        {
+            key: undefined,
+            label: 'All',
+            count: Object.values(counts).reduce((a, b) => a + b, 0),
+        },
+        { key: 'pending', label: 'Pending', count: counts['pending'] ?? 0 },
+        { key: 'approved', label: 'Approved', count: counts['approved'] ?? 0 },
+        { key: 'rejected', label: 'Rejected', count: counts['rejected'] ?? 0 },
+        { key: 'blocked', label: 'Blocked', count: counts['blocked'] ?? 0 },
+    ];
+
     return (
         <TenantLayout>
             <Head title="Users" />
 
             <div className="space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
+                {/* Header - Responsive */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
                         <h1 className="text-2xl font-bold tracking-tight">
                             Users
                         </h1>
-                        <p className="mt-1 text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground">
                             Manage workspace members and registration
                             applications.
                         </p>
@@ -238,318 +280,329 @@ export default function UsersIndex({ users, counts, currentStatus }: Props) {
                         <Button variant="outline" size="sm" asChild>
                             <Link href={settingsRoute.url()}>
                                 <Settings className="mr-2 h-4 w-4" />
-                                Registration Settings
+                                <span className="hidden sm:inline">
+                                    Registration Settings
+                                </span>
+                                <span className="sm:hidden">Settings</span>
                             </Link>
                         </Button>
                         <Button size="sm" asChild>
                             <Link href={create.url()}>
                                 <UserPlus className="mr-2 h-4 w-4" />
-                                Add User
+                                <span className="hidden sm:inline">
+                                    Add User
+                                </span>
+                                <span className="sm:hidden">Add</span>
                             </Link>
                         </Button>
                     </div>
                 </div>
 
-                <Card>
-                    <CardHeader className="pb-0">
-                        {/* Status Tabs */}
-                        <div className="-mx-6 flex gap-1 border-b px-6">
-                            {TABS.map((tab) => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => handleTabChange(tab.key)}
-                                    className={`border-b-2 px-3 pb-3 text-sm font-medium transition-colors ${
-                                        currentStatus === tab.key
-                                            ? 'border-primary text-primary'
-                                            : 'border-transparent text-muted-foreground hover:text-foreground'
-                                    }`}
-                                >
-                                    {tab.label}
-                                    {counts[tab.countKey] > 0 && (
-                                        <span
-                                            className={`ml-2 rounded-full px-1.5 py-0.5 text-xs ${
-                                                tab.key === 'pending'
-                                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                                    : 'bg-muted text-muted-foreground'
-                                            }`}
-                                        >
-                                            {counts[tab.countKey]}
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    </CardHeader>
+                {/* Status tabs - Responsive with wrap */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {statusTabs.map((tab) => (
+                        <button
+                            key={tab.key ?? 'all'}
+                            onClick={() => handleTabChange(tab.key ?? '')}
+                            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                                currentStatus === tab.key ||
+                                (!currentStatus && !tab.key)
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                            }`}
+                        >
+                            <span>{tab.label}</span>
+                            <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                    currentStatus === tab.key ||
+                                    (!currentStatus && !tab.key)
+                                        ? 'bg-primary-foreground/20 text-primary-foreground'
+                                        : 'bg-muted-foreground/20 text-muted-foreground'
+                                }`}
+                            >
+                                {tab.count}
+                            </span>
+                        </button>
+                    ))}
+                </div>
 
-                    <CardContent className="pt-4">
-                        {users.data.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-16 text-center">
-                                <Users className="mb-4 h-10 w-10 text-muted-foreground/40" />
-                                <p className="font-medium text-muted-foreground">
-                                    No users found
-                                </p>
-                                {currentStatus === 'pending' && (
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        No pending applications to review.
-                                    </p>
-                                )}
-                            </div>
-                        ) : (
-                            <>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Name</TableHead>
-                                            <TableHead>Email</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Type</TableHead>
-                                            <TableHead>Roles</TableHead>
-                                            <TableHead>Joined</TableHead>
-                                            <TableHead className="w-10" />
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {users.data.map((user) => {
-                                            const statusCfg =
-                                                STATUS_CONFIG[user.status];
-                                            return (
-                                                <TableRow key={user.id}>
-                                                    <TableCell>
-                                                        <div className="font-medium">
-                                                            {user.name}
-                                                        </div>
-                                                        {user.designation && (
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {
-                                                                    user.designation
-                                                                }
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-muted-foreground">
-                                                        {user.email}
-                                                    </TableCell>
-                                                    <TableCell>
+                {/* Search - Responsive max-width */}
+                <div className="relative max-w-sm">
+                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        className="pl-9 transition-colors focus:border-ring"
+                        placeholder="Search by name or email..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    />
+                </div>
+
+                {/* Table - Responsive with horizontal scroll */}
+                <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead className="font-semibold">
+                                        User
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                        Email
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                        Status
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                        Type
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                        Roles
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                        Joined
+                                    </TableHead>
+                                    <TableHead className="w-[80px] text-right font-semibold">
+                                        Actions
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {users.data.map((user) => (
+                                    <TableRow
+                                        key={user.id}
+                                        className="hover:bg-muted/30"
+                                    >
+                                        <TableCell>
+                                            <div className="space-y-0.5">
+                                                <p className="font-medium text-slate-900">
+                                                    {user.name}
+                                                </p>
+                                                {user.designation && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {user.designation}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {user.email}
+                                        </TableCell>
+                                        <TableCell>
+                                            <StatusBadge status={user.status} />
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {user.registration_type ===
+                                            'self_registered'
+                                                ? 'Self-registered'
+                                                : 'Admin created'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-wrap gap-1">
+                                                {user.roles
+                                                    .slice(0, 2)
+                                                    .map((r) => (
                                                         <Badge
-                                                            variant={
-                                                                statusCfg.variant
-                                                            }
+                                                            key={r.id}
+                                                            variant="outline"
+                                                            className="text-xs"
                                                         >
-                                                            {statusCfg.label}
+                                                            {r.name}
                                                         </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {user.registration_type ===
-                                                            'self_registered'
-                                                                ? 'Self-registered'
-                                                                : 'Admin created'}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {user.roles
-                                                                .slice(0, 2)
-                                                                .map((r) => (
-                                                                    <Badge
-                                                                        key={
-                                                                            r.id
-                                                                        }
-                                                                        variant="outline"
-                                                                        className="text-xs"
-                                                                    >
-                                                                        {r.name}
-                                                                    </Badge>
-                                                                ))}
-                                                            {user.roles.length >
-                                                                2 && (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="text-xs"
-                                                                >
-                                                                    +
-                                                                    {user.roles
-                                                                        .length -
-                                                                        2}
-                                                                </Badge>
-                                                            )}
-                                                            {user.roles
-                                                                .length ===
-                                                                0 && (
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    —
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">
-                                                        {new Date(
-                                                            user.created_at,
-                                                        ).toLocaleDateString()}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger
-                                                                asChild
-                                                            >
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8"
-                                                                >
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                {/* Review actions for pending users */}
-                                                                {user.status ===
-                                                                    'pending' && (
-                                                                    <>
-                                                                        <DropdownMenuItem
-                                                                            className="text-green-600 focus:text-green-600"
-                                                                            onClick={() =>
-                                                                                setReviewTarget(
-                                                                                    {
-                                                                                        user,
-                                                                                        action: 'approve',
-                                                                                    },
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                                                                            Approve
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem
-                                                                            onClick={() =>
-                                                                                setReviewTarget(
-                                                                                    {
-                                                                                        user,
-                                                                                        action: 'reject',
-                                                                                    },
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <XCircle className="mr-2 h-4 w-4" />
-                                                                            Reject
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuSeparator />
-                                                                    </>
-                                                                )}
-
-                                                                {/* Block approved users */}
-                                                                {user.status ===
-                                                                    'approved' && (
-                                                                    <>
-                                                                        <DropdownMenuItem
-                                                                            className="text-destructive focus:text-destructive"
-                                                                            onClick={() =>
-                                                                                setReviewTarget(
-                                                                                    {
-                                                                                        user,
-                                                                                        action: 'block',
-                                                                                    },
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <Ban className="mr-2 h-4 w-4" />
-                                                                            Block
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuSeparator />
-                                                                    </>
-                                                                )}
-
-                                                                {/* Re-approve blocked/rejected users */}
-                                                                {(user.status ===
-                                                                    'blocked' ||
-                                                                    user.status ===
-                                                                        'rejected') && (
-                                                                    <>
-                                                                        <DropdownMenuItem
-                                                                            className="text-green-600 focus:text-green-600"
-                                                                            onClick={() =>
-                                                                                setReviewTarget(
-                                                                                    {
-                                                                                        user,
-                                                                                        action: 'approve',
-                                                                                    },
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                                                                            Re-approve
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuSeparator />
-                                                                    </>
-                                                                )}
-
+                                                    ))}
+                                                {user.roles.length > 2 && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="text-xs"
+                                                    >
+                                                        +{user.roles.length - 2}
+                                                    </Badge>
+                                                )}
+                                                {user.roles.length === 0 && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {new Date(
+                                                user.created_at,
+                                            ).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger
+                                                        asChild
+                                                    >
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                        >
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        {/* Review actions for pending users */}
+                                                        {user.status ===
+                                                            'pending' && (
+                                                            <>
                                                                 <DropdownMenuItem
-                                                                    asChild
-                                                                >
-                                                                    <Link
-                                                                        href={edit.url(
-                                                                            user.id,
-                                                                        )}
-                                                                    >
-                                                                        <Pencil className="mr-2 h-4 w-4" />
-                                                                        Edit
-                                                                    </Link>
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem
-                                                                    className="text-destructive focus:text-destructive"
+                                                                    className="text-green-600 focus:text-green-600"
                                                                     onClick={() =>
-                                                                        setDeleteTarget(
-                                                                            user,
+                                                                        setReviewTarget(
+                                                                            {
+                                                                                user,
+                                                                                action: 'approve',
+                                                                            },
                                                                         )
                                                                     }
                                                                 >
-                                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                                    Delete
+                                                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                                                    Approve
                                                                 </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
+                                                                <DropdownMenuItem
+                                                                    onClick={() =>
+                                                                        setReviewTarget(
+                                                                            {
+                                                                                user,
+                                                                                action: 'reject',
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <XCircle className="mr-2 h-4 w-4" />
+                                                                    Reject
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                            </>
+                                                        )}
 
-                                {/* Pagination */}
-                                {users.last_page > 1 && (
-                                    <div className="mt-4 flex items-center justify-between border-t pt-4">
-                                        <p className="text-sm text-muted-foreground">
-                                            Showing {users.from}–{users.to} of{' '}
-                                            {users.total}
-                                        </p>
-                                        <div className="flex items-center gap-1">
-                                            {users.links.map((link, i) => (
-                                                <Button
-                                                    key={i}
-                                                    variant={
-                                                        link.active
-                                                            ? 'default'
-                                                            : 'ghost'
-                                                    }
-                                                    size="sm"
-                                                    disabled={!link.url}
-                                                    onClick={() =>
-                                                        link.url &&
-                                                        router.visit(link.url)
-                                                    }
-                                                    className="min-w-[32px]"
-                                                    dangerouslySetInnerHTML={{
-                                                        __html: link.label,
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
+                                                        {/* Block approved users */}
+                                                        {user.status ===
+                                                            'approved' && (
+                                                            <>
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive focus:text-destructive"
+                                                                    onClick={() =>
+                                                                        setReviewTarget(
+                                                                            {
+                                                                                user,
+                                                                                action: 'block',
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Ban className="mr-2 h-4 w-4" />
+                                                                    Block
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                            </>
+                                                        )}
+
+                                                        {/* Re-approve blocked/rejected users */}
+                                                        {(user.status ===
+                                                            'blocked' ||
+                                                            user.status ===
+                                                                'rejected') && (
+                                                            <>
+                                                                <DropdownMenuItem
+                                                                    className="text-green-600 focus:text-green-600"
+                                                                    onClick={() =>
+                                                                        setReviewTarget(
+                                                                            {
+                                                                                user,
+                                                                                action: 'approve',
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                                                    Re-approve
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                            </>
+                                                        )}
+
+                                                        <DropdownMenuItem
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={edit.url(
+                                                                    user.id,
+                                                                )}
+                                                            >
+                                                                <Pencil className="mr-2 h-4 w-4" />
+                                                                Edit
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="text-destructive focus:text-destructive"
+                                                            onClick={() =>
+                                                                setDeleteTarget(
+                                                                    user,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {users.data.length === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={7}
+                                            className="h-32 text-center"
+                                        >
+                                            <div className="flex flex-col items-center justify-center space-y-2">
+                                                <div className="rounded-full bg-muted p-3">
+                                                    <Search className="h-5 w-5 text-muted-foreground" />
+                                                </div>
+                                                <p className="text-sm text-muted-foreground">
+                                                    No users found
+                                                </p>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
                                 )}
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+
+                {/* Pagination - Responsive */}
+                {users.last_page > 1 && (
+                    <div className="flex flex-col items-center justify-between gap-4 border-t pt-4 sm:flex-row">
+                        <p className="text-center text-sm text-muted-foreground sm:text-left">
+                            Showing {users.from}–{users.to} of {users.total}
+                        </p>
+                        <div className="flex items-center gap-1">
+                            {users.links.map((link, i) => (
+                                <Button
+                                    key={i}
+                                    variant={link.active ? 'default' : 'ghost'}
+                                    size="sm"
+                                    disabled={!link.url}
+                                    onClick={() =>
+                                        link.url && router.visit(link.url)
+                                    }
+                                    className="min-w-[32px]"
+                                    dangerouslySetInnerHTML={{
+                                        __html: link.label,
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Delete confirmation */}
